@@ -15,6 +15,7 @@ impl State for Ising1D {
     type Params = f64; // coupling J
     type Change = usize; // position to flip
 
+    // fix: 31% del tiempo de ejecución:
     fn energy(&self, J: &mut f64) -> f64 {
         let mut e = 0.0;
         for i in 0..self.spins.len() {
@@ -55,12 +56,16 @@ pub fn run_ising() {
     println!("Finished Ising 1D");
     println!("ln_g: {ln_g:#?}");
 
-    let max = ln_g.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
-    let ln_z0: f64 = max + ln_g.iter().fold(0.0, |acc, li| acc + (li - max).exp()).ln();
+    let max_ln_g = ln_g.iter().max_by(|a, b| a.total_cmp(b)).unwrap();
+    let ln_z0: f64 = max_ln_g
+        + ln_g
+            .iter()
+            .fold(0.0, |acc, li| acc + (li - max_ln_g).exp())
+            .ln();
     println!("{ln_z0}");
     let ln_g_normalized: Vec<f64> = ln_g
         .iter()
-        .map(|li| li + N as f64 * f64::consts::LN_2 - ln_z0)
+        .map(|li| li + (N as f64) * f64::consts::LN_2 - ln_z0)
         .collect();
     println!("{ln_g_normalized:?}");
     println!(
