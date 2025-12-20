@@ -17,17 +17,16 @@ pub fn wang_landau<S>(
     min_energy: f64,
     max_energy: f64,
     n_bins: usize,
-) -> (DoS, Histogram)
+) -> WangLandauData
 where
     S: State + Randomizable,
 {
-    let mut ln_g = vec![0.0_f64; n_bins];
-    let mut hist = Histogram::new(n_bins, min_energy, max_energy);
+    let mut data: WangLandauData = WangLandauData::new(n_bins, min_energy, max_energy);
     let mut ln_f = 1.0;
     let mut rng = rand::rng();
     let mut state = S::sample(&mut rng);
     let mut prev_energy = state.energy(&mut params);
-    let mut prev_energy_bin = hist.energy_to_bin(prev_energy);
+    let mut prev_energy_bin = data.energy_to_bin(prev_energy);
     let mut switch: bool = false;
 
     'w: loop {
@@ -35,10 +34,13 @@ where
             let change = state.propose_change(&mut rng);
             state.apply_change(change.clone());
             let new_energy = state.energy(&mut params);
-            let new_energy_bin = hist.energy_to_bin(new_energy);
+            let new_energy_bin = data.energy_to_bin(new_energy);
 
             if rng.random::<f64>()
-                < f64::min(1.0, (ln_g[prev_energy_bin] - ln_g[new_energy_bin]).exp())
+                < f64::min(
+                    1.0,
+                    (data.dos[prev_energy_bin] - data.dos[new_energy_bin]).exp(),
+                )
             {
                 prev_energy = new_energy;
                 prev_energy_bin = new_energy_bin;
@@ -46,53 +48,60 @@ where
                 state.revert_change(change);
             }
             if switch {
-                let t = hist.total_visits as f64 / hist.bins.len() as f64;
+                let t = data.total_visits as f64 / data.bins.len() as f64;
                 if t >= target_time {
                     break 'w;
                 }
-                ln_g[prev_energy_bin] += 1.0 / t;
+                data.dos[prev_energy_bin] += 1.0 / t;
             } else {
-                ln_g[prev_energy_bin] += ln_f;
+                data.dos[prev_energy_bin] += ln_f;
             }
-            hist.bins[prev_energy_bin] += 1;
-            hist.visit();
+            data.bins[prev_energy_bin] += 1;
+            data.visit();
 
-            if prev_energy < hist.min || prev_energy > hist.max {
-                println!("{prev_energy} outside bounds ({}, {})", hist.min, hist.max);
+            if prev_energy < data.min || prev_energy > data.max {
+                println!("{prev_energy} outside bounds ({}, {})", data.min, data.max);
             }
         }
 
-        if !switch && hist.is_flat() && hist.total_visits >= k * hist.bins.len() {
+        if !switch && data.is_flat() && data.total_visits >= k * data.bins.len() {
             ln_f *= 0.5;
             if ln_f < switch_ln_f {
                 switch = true;
             } else {
-                hist.clear(); // makes all bins 0
+                data.clear_hist(); // makes all bins 0
             }
         }
     }
 
-    (ln_g, hist)
+    data
 }
-
-pub type DoS = Vec<f64>;
 
 #[derive(Debug)]
-pub struct Histogram {
+pub struct WangLandauData {
+    /// Density of States
+    pub dos: Vec<f64>,
+    // Histogram data
+    /// Histogram bins
     pub bins: Vec<usize>,
+    /// minimum energy
     pub min: f64,
+    /// maximum energy
     pub max: f64,
+    /// width of energy of each bin
     pub bin_width: f64,
-    pub total_visits: usize,
+    /// visits between each ln_f
+    total_visits: usize,
 }
 
-impl Histogram {
-    pub fn new(bins: usize, min: f64, max: f64) -> Self {
+impl WangLandauData {
+    pub fn new(n_bins: usize, min: f64, max: f64) -> Self {
         Self {
-            bins: vec![0; bins],
+            dos: vec![0.0_f64; n_bins],
+            bins: vec![0; n_bins],
             min,
             max,
-            bin_width: (max - min) / bins as f64,
+            bin_width: (max - min) / n_bins as f64,
             total_visits: 0,
         }
     }
@@ -122,7 +131,7 @@ impl Histogram {
         true
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear_hist(&mut self) {
         self.bins.iter_mut().for_each(|v| *v = 0);
         self.total_visits = 0;
     }

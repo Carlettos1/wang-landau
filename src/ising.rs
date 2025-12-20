@@ -1,7 +1,7 @@
 use core::f64;
 
-use csta::{Randomizable, State, csta_derive::Randomizable};
-use cstawl::{Histogram, wang_landau};
+use csta::{Randomizable, State};
+use cstawl::wang_landau;
 use rand::Rng;
 
 const N: usize = 32;
@@ -51,8 +51,8 @@ impl Randomizable for Ising1D {
 pub fn run_ising() {
     println!("Starting Ising 1D");
     let J = 1.0;
-    let (ln_g, hist) =
-        wang_landau::<Ising1D>(1e-12, 10_000, J, -J * N as f64, J * N as f64, N / 2 + 1);
+    let wl_data = wang_landau::<Ising1D>(1e-12, 10_000, J, -J * N as f64, J * N as f64, N / 2 + 1);
+    let ln_g = wl_data.dos;
     println!("Finished Ising 1D");
     println!("ln_g: {ln_g:#?}");
 
@@ -92,7 +92,7 @@ pub fn run_ising() {
             - (1..k).fold(0.0, |acc, x| acc + (x as f64).ln());
         let anchored = ln_gei + anchor;
         println!(
-            "{} | {: >2} | E_{: <2} | {: >8.3}| {: >8.3} | {: >8.3} | {: >8.3} | {: >3}",
+            "{} | {: >2} | E_{: <2} | {: >9.3}| {: >8.3} | {: >8.3} | {: >8.3} | {: >3}",
             N,
             k,
             k,
@@ -108,22 +108,4 @@ pub fn run_ising() {
     println!("Errores:");
     println!("normalized: {error_anchored_state: >10.4}");
     println!("anchored:   {error_normalized_state: >10.4}");
-}
-
-fn log_sum_exp(xs: &[f64]) -> f64 {
-    let m = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    m + xs.iter().map(|x| (x - m).exp()).sum::<f64>().ln()
-}
-
-fn free_energy(ln_g: &[f64], hist: &Histogram, beta: f64) -> f64 {
-    let terms: Vec<f64> = ln_g
-        .iter()
-        .enumerate()
-        .map(|(i, &lg)| {
-            let E = hist.min + (i as f64 + 0.5) * hist.bin_width;
-            lg - beta * E
-        })
-        .collect();
-
-    -log_sum_exp(&terms) / beta
 }
