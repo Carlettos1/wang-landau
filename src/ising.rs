@@ -4,7 +4,7 @@ use csta::{Randomizable, State, csta_derive::Randomizable};
 use cstawl::{Histogram, wang_landau};
 use rand::Rng;
 
-const N: usize = 128;
+const N: usize = 32;
 
 #[derive(Debug)]
 struct Ising1D {
@@ -82,7 +82,7 @@ pub fn run_ising() {
     let mut error_normalized_state = 0.0;
     let mut error_anchored_state = 0.0;
     println!("Exact DoS comparison; g(E_k)=2(N k), N: {N}");
-    println!(" N | k  | E_k  |ln(g(E_k))| anchored |analytical| energy");
+    println!(" N | k  | E_k  |ln(g(E_k))|normalized| anchored |analytical| energy");
     for (i, (normal_ln_gei, ln_gei)) in ln_g_normalized.iter().zip(ln_g.iter()).enumerate() {
         let k = 2 * i;
         let exact_ln = f64::consts::LN_2
@@ -92,10 +92,11 @@ pub fn run_ising() {
             - (1..k).fold(0.0, |acc, x| acc + (x as f64).ln());
         let anchored = ln_gei + anchor;
         println!(
-            "{} | {: >2} | E_{: <2} | {: >8.3} | {: >8.3} | {: >8.3} | {: >3}",
+            "{} | {: >2} | E_{: <2} | {: >8.3}| {: >8.3} | {: >8.3} | {: >8.3} | {: >3}",
             N,
             k,
             k,
+            ln_gei,
             normal_ln_gei,
             anchored,
             exact_ln,
