@@ -1,7 +1,7 @@
 use core::f64;
 
 use csta::{Randomizable, State};
-use cstawl::wang_landau;
+use cstawl::{WLData, wang_landau};
 use rand::Rng;
 
 const N: usize = 32;
@@ -51,8 +51,9 @@ impl Randomizable for Ising1D {
 pub fn run_ising() {
     println!("Starting Ising 1D");
     let J = 1.0;
-    let wl_data = wang_landau::<Ising1D>(1e-12, 10_000, J, -J * N as f64, J * N as f64, N / 2 + 1);
-    let ln_g = wl_data.dos;
+    let wl_raw_data =
+        wang_landau::<Ising1D>(1e-12, 10_000, J, -J * N as f64, J * N as f64, N / 2 + 1);
+    let ln_g = wl_raw_data.dos.to_vec();
     println!("Finished Ising 1D");
     println!("ln_g: {ln_g:#?}");
 
@@ -108,4 +109,28 @@ pub fn run_ising() {
     println!("Errores:");
     println!("normalized: {error_anchored_state: >10.4}");
     println!("anchored:   {error_normalized_state: >10.4}");
+
+    let data = WLData::from(wl_raw_data);
+
+    println!("Using Z(beta)");
+    for temp in [0.5, 1.0, 1.5, 2.0] {
+        let beta = 1.0 / temp;
+        let log_z = data.log_partition_function(beta);
+
+        let (e, e2) = data.energy_moments(beta);
+        let c = data.specific_heat(beta, 1.0);
+        let f = data.free_energy(log_z, beta, 1.0);
+        let s = data.entropy(e, f, temp);
+
+        let p_e = data.energy_distribution(beta);
+
+        println!(
+            "T={temp:.1}, Beta={beta:.3}, log_z={log_z:.4}, <E>={e:.4}, <E²>={e2:.4}, C(T)={c:.4}, F(T)={f:.4}, S(T)={s:.4}, P(E|T)={p_e:.4?}"
+        );
+    }
+    println!("Microcanonical data: ");
+    let s_e = data.microcanonical_entropy(1.0);
+    let t_micro = data.microcanonical_temperature(1.0);
+    println!("S(E)={s_e:.4?}");
+    println!("T(E)={t_micro:.4?}");
 }

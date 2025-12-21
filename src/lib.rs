@@ -2,8 +2,11 @@ use csta::{Randomizable, State};
 use itertools::*;
 use rand::Rng;
 
+mod wl_data;
+pub use wl_data::WLData;
+
 /// when it switches from ln_f to 1/t
-const switch_ln_f: f64 = 1e-6; // strict = 1e-9
+const switch_ln_f: f64 = 1e-3; // strict = 1e-9
 /// how many visits (k*bins) should have before doing ln_f *= 0.5
 const k: usize = 500; // strict = 1000
 /// % difference with mean on for each bin
@@ -17,11 +20,11 @@ pub fn wang_landau<S>(
     min_energy: f64,
     max_energy: f64,
     n_bins: usize,
-) -> WangLandauData
+) -> RawWangLandauData
 where
     S: State + Randomizable,
 {
-    let mut data: WangLandauData = WangLandauData::new(n_bins, min_energy, max_energy);
+    let mut data: RawWangLandauData = RawWangLandauData::new(n_bins, min_energy, max_energy);
     let mut ln_f = 1.0;
     let mut rng = rand::rng();
     let mut state = S::sample(&mut rng);
@@ -78,7 +81,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct WangLandauData {
+pub struct RawWangLandauData {
     /// Density of States
     pub dos: Vec<f64>,
     // Histogram data
@@ -94,7 +97,7 @@ pub struct WangLandauData {
     total_visits: usize,
 }
 
-impl WangLandauData {
+impl RawWangLandauData {
     pub fn new(n_bins: usize, min: f64, max: f64) -> Self {
         Self {
             dos: vec![0.0_f64; n_bins],
@@ -106,14 +109,14 @@ impl WangLandauData {
         }
     }
 
-    pub fn energy_to_bin(&self, value: f64) -> usize {
-        let value = value.clamp(self.min, self.max);
-        let i = ((value - self.min) / self.bin_width) as usize;
+    pub fn energy_to_bin(&self, energy_value: f64) -> usize {
+        let energy_value = energy_value.clamp(self.min, self.max);
+        let i = ((energy_value - self.min) / self.bin_width) as usize;
         i.min(self.bins.len() - 1)
     }
 
-    pub fn get(&self, value: f64) -> usize {
-        let bin = self.energy_to_bin(value);
+    pub fn get(&self, energy_value: f64) -> usize {
+        let bin = self.energy_to_bin(energy_value);
         self.bins[bin]
     }
 
@@ -138,5 +141,9 @@ impl WangLandauData {
 
     pub fn visit(&mut self) {
         self.total_visits += 1;
+    }
+
+    pub fn process_data(self) -> WLData {
+        self.into()
     }
 }
