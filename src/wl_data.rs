@@ -135,7 +135,7 @@ fn bin_to_energy(min: f64, bin_width: f64, bin: usize) -> f64 {
 }
 
 /// Helper function to sum over ln values
-fn log_sum_exp(values: &[f64]) -> f64 {
+pub fn log_sum_exp(values: &[f64]) -> f64 {
     let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
     let sum: f64 = values.iter().map(|v| (v - max).exp()).sum();

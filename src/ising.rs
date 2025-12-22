@@ -1,7 +1,8 @@
 use core::f64;
 
 use csta::{Randomizable, State};
-use cstawl::{WLData, wang_landau};
+use cstawl::{WLData, log_sum_exp, wang_landau};
+use itertools::izip;
 use rand::Rng;
 
 const N: usize = 32;
@@ -51,8 +52,14 @@ impl Randomizable for Ising1D {
 pub fn run_ising() {
     println!("Starting Ising 1D");
     let J = 1.0;
-    let wl_raw_data =
-        wang_landau::<Ising1D>(1e-12, 10_000, J, -J * N as f64, J * N as f64, N / 2 + 1);
+    let wl_raw_data = wang_landau::<Ising1D>(
+        1_000_000.0,
+        10_000,
+        J,
+        -J * N as f64,
+        J * N as f64,
+        N / 2 + 1,
+    );
     let ln_g = wl_raw_data.dos.to_vec();
     println!("Finished Ising 1D");
     println!("ln_g: {ln_g:#?}");
@@ -68,6 +75,9 @@ pub fn run_ising() {
         .iter()
         .map(|li| li + (N as f64) * f64::consts::LN_2 - ln_z0)
         .collect();
+    // let ln_sum = log_sum_exp(&ln_g);
+    // let ln_de = wl_raw_data.bin_width.ln();
+    // let ln_g_normalized: Vec<f64> = ln_g.iter().map(|li| li - ln_de - ln_sum).collect();
     println!("{ln_g_normalized:?}");
     println!(
         "Total Number of states: {}",
@@ -79,6 +89,7 @@ pub fn run_ising() {
 
     let ln_ge0 = *ln_g.first().unwrap();
     let anchor = f64::consts::LN_2 - ln_ge0;
+    let mut analitical = Vec::new();
 
     let mut error_normalized_state = 0.0;
     let mut error_anchored_state = 0.0;
@@ -105,12 +116,20 @@ pub fn run_ising() {
         );
         error_anchored_state += (anchored - exact_ln).powi(2);
         error_normalized_state += (normal_ln_gei - exact_ln).powi(2);
+        analitical.push(exact_ln);
     }
     println!("Errores:");
     println!("normalized: {error_anchored_state: >10.4}");
     println!("anchored:   {error_normalized_state: >10.4}");
 
     let data = WLData::from(wl_raw_data);
+    let data2 = WLData {
+        dos: analitical,
+        min: -J * N as f64,
+        max: J * N as f64,
+        bins: vec![0; N / 2 - 1],
+        bin_width: (J * N as f64 + J * N as f64) / (N / 2 - 1) as f64,
+    };
 
     println!("Using Z(beta)");
     for temp in [0.5, 1.0, 1.5, 2.0] {
@@ -123,10 +142,16 @@ pub fn run_ising() {
         let s = data.entropy(e, f, temp);
 
         let p_e = data.energy_distribution(beta);
+        let p_e2 = data2.energy_distribution(beta);
 
         println!(
-            "T={temp:.1}, Beta={beta:.3}, log_z={log_z:.4}, <E>={e:.4}, <E²>={e2:.4}, C(T)={c:.4}, F(T)={f:.4}, S(T)={s:.4}, P(E|T)={p_e:.4?}"
+            "T={temp:.1}, Beta={beta:.3}, log_z={log_z:.4}, <E>={e:.4}, <E²>={e2:.4}, C(T)={c:.4}, F(T)={f:.4}, S(T)={s:.4}"
         );
+        println!("P_wl(E|T)={p_e:.4?}");
+        println!("P_an(E|T)={p_e2:.4?}");
+
+        let p_e_error: f64 = izip!(p_e, p_e2).map(|(x, y)| (x - y).abs()).sum();
+        println!("Error of P(E|T) = {:.4}", p_e_error);
     }
     println!("Microcanonical data: ");
     let s_e = data.microcanonical_entropy(1.0);

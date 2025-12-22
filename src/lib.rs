@@ -3,10 +3,10 @@ use itertools::*;
 use rand::Rng;
 
 mod wl_data;
-pub use wl_data::WLData;
+pub use wl_data::{WLData, log_sum_exp};
 
 /// when it switches from ln_f to 1/t
-const switch_ln_f: f64 = 1e-3; // strict = 1e-9
+const switch_ln_f: f64 = 1e-6; // strict = 1e-9
 /// how many visits (k*bins) should have before doing ln_f *= 0.5
 const k: usize = 500; // strict = 1000
 /// % difference with mean on for each bin
@@ -51,7 +51,7 @@ where
                 state.revert_change(change);
             }
             if switch {
-                let t = data.total_visits as f64 / data.bins.len() as f64;
+                let t = (data.total_visits + 1) as f64 / data.bins.len() as f64;
                 if t >= target_time {
                     break 'w;
                 }
@@ -67,13 +67,13 @@ where
             }
         }
 
-        if !switch && data.is_flat() && data.total_visits >= k * data.bins.len() {
+        if !switch && data.is_flat() && data.visits >= k * data.bins.len() {
             ln_f *= 0.5;
             if ln_f < switch_ln_f {
                 switch = true;
             } else {
-                data.clear_hist(); // makes all bins 0
             }
+            data.clear_hist(); // makes all bins 0
         }
     }
 
@@ -92,8 +92,10 @@ pub struct RawWangLandauData {
     /// maximum energy
     pub max: f64,
     /// width of energy of each bin
+    #[doc(alias = "de")]
     pub bin_width: f64,
     /// visits between each ln_f
+    visits: usize,
     total_visits: usize,
 }
 
@@ -105,6 +107,7 @@ impl RawWangLandauData {
             min,
             max,
             bin_width: (max - min) / n_bins as f64,
+            visits: 0,
             total_visits: 0,
         }
     }
@@ -136,10 +139,11 @@ impl RawWangLandauData {
 
     pub fn clear_hist(&mut self) {
         self.bins.iter_mut().for_each(|v| *v = 0);
-        self.total_visits = 0;
+        self.visits = 0;
     }
 
     pub fn visit(&mut self) {
+        self.visits += 1;
         self.total_visits += 1;
     }
 
