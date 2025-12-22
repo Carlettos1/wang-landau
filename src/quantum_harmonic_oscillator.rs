@@ -46,7 +46,7 @@ impl State for QHO {
 
 pub fn run_qho() {
     println!("Starting qho");
-    let wl_data = wang_landau::<QHO>(500_000.0, 10_000, (), -0.25 * N as f64, 0.75 * N as f64, N);
+    //let wl_data = wang_landau::<QHO>(500_000.0, 10_000, (), -0.25 * N as f64, 0.75 * N as f64, N);
     println!("Finished qho");
-    println!("ln_g: {wl_data:?}");
+    //println!("ln_g: {wl_data:?}");
 }
