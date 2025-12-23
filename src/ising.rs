@@ -53,7 +53,7 @@ pub fn run_ising() -> (f64, usize) {
     println!("Starting Ising 1D");
     let J = 1.0;
     let wl_raw_data = wang_landau2::<Ising1D>(
-        500_000.0,
+        5_000_000.0,
         1_000,
         5,
         500,
